@@ -27,7 +27,6 @@ spec:
                     "--ood_eval={{ cfg.Client_Job.ood_eval }}",
                     "--merlin_mode={{ cfg.Client_Job.merlin_mode }}",
                     "--guided_decoding={{ cfg.Client_Job.guided_decoding }}",
-                    "--guided_reasoning={{ cfg.Client_Job.guided_reasoning }}",
                     "--think_about_labs={{ cfg.Client_Job.think_about_labs }}",
                     "--lora={{ cfg.Model.lora }}",
                     "--lora_name={{ cfg.Model.lora_modules }}",
@@ -50,11 +49,18 @@ spec:
               # memory: "4Gi"
               # cpu: "1"
               nvidia.com/gpu: "1"
-        {% if cfg.namespace != 'clinibench' %}
           volumeMounts:
+            - name: model-volume
+              mountPath: /models
+            {% if cfg.namespace != 'clinibench' %}
             - name: checkpoints-volume
               mountPath: /checkpoints
+            {% endif %}
       volumes:
+        - name: model-volume
+          persistentVolumeClaim:
+            claimName: model-volume
+        {% if cfg.namespace != 'clinibench' %}
         - name: checkpoints-volume
           persistentVolumeClaim:
             claimName: checkpoints-volume

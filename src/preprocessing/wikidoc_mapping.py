@@ -1,6 +1,6 @@
 import pandas as pd
-import txtai
-from txtai import Embeddings
+# import txtai
+# from txtai import Embeddings
 
 from src.exp_args import ExpArgs
 
@@ -71,7 +71,7 @@ def get_disease_vector(args: ExpArgs, chief_complaint: str, disease_name: str) -
 
 def add_mapped_primary_diagnoses(args: ExpArgs, file_name: str):
     """Load mimic patients, map primary diagnose -> top 10 wikidoc diagnose, store"""
-    # Todo: load dynamically
+    # Todo: load primary complaint dynamically
     exp_args = ExpArgs()
     file_path = f'{args.data_dir}/reasoning/abdominal_pain/{file_name}'
     patients = pd.read_parquet(file_path)

@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm-server-qwen3
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vllm-server-qwen3
+  template:
+    metadata:
+      labels:
+        app: vllm-server-qwen3
+    spec:
+      imagePullSecrets:
+        - name: private-registry-auth
+      containers:
+        - name: vllm-server-qwen3
+          image: vllm/vllm-openai:v0.9.1
+          command:  ["python3", "-m",
+                     "vllm.entrypoints.openai.api_server",
+                     "--model=Qwen/Qwen3-32B",
+                     "--max-model-len=8192",
+                     "--tensor-parallel-size=1",
+                     "--download-dir=/models",
+          ]
+          ports:
+            - containerPort: 8000
+          resources:
+            limits:
+              memory: "256Gi"
+              nvidia.com/gpu: "1"  # Only include if using GPU
+            requests:
+              nvidia.com/gpu: "1"
+          volumeMounts:
+            - name: dshm
+              mountPath: /dev/shm  # Mount shared memory
+            - name: model-volume
+              mountPath: /models
+          env:
+            - name: HUGGING_FACE_HUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: hf-token-secret
+                  key: HF_TOKEN
+      volumes:
+        - name: dshm  # Define shared memory volume
+          emptyDir:
+            medium: Memory
+        - name: model-volume
+          persistentVolumeClaim:
+            claimName: model-volume
+      nodeSelector:
+        gpu: h200
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vllm-server-qwen3
+spec:
+  selector:
+    app: vllm-server-qwen3
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8000

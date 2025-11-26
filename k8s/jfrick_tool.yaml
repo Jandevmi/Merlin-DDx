@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: tool
+spec:
+  containers:
+    - args:
+        - while true; do sleep 30; done;
+      command:
+        - /bin/bash
+        - -c
+        - --
+      image: debian
+      name: tool
+      volumeMounts:
+        - mountPath: /data
+          name: embedding-volume
+        - mountPath: /models
+          name: model-volume
+        - name: checkpoints-volume
+          mountPath: /checkpoints
+  volumes:
+    - name: embedding-volume
+      persistentVolumeClaim:
+        claimName: embedding-volume
+    - name: model-volume
+      persistentVolumeClaim:
+        claimName: model-volume
+    - name: checkpoints-volume
+      persistentVolumeClaim:
+        claimName: checkpoints-volume
+
+

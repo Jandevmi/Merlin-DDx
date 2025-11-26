@@ -4,7 +4,7 @@ import os
 
 import wandb
 
-from src.ddx_data_gen.prompt_args import PromptArgs
+from src.pipeline.prompt_args import PromptArgs
 from src.exp_args import ExpArgs
 
 
@@ -41,9 +41,6 @@ def update_wandb_name_tags(run, exp_args: ExpArgs, p_args: PromptArgs):
         run.name += '-no-merlin'
     if not exp_args.config_str['Client_Job'].get('think_about_labs'):
         run.name += '-no-labs'
-    if p_args.guided_decoding and p_args.guided_reasoning:
-        run.name += '-guid_reasoning'
-        run.tags += ('gui_dec', )
     elif p_args.guided_decoding:
         run.name += '-guid_decoding'
         run.tags += ('gui_dec', )

@@ -18,10 +18,10 @@ def init_notebook(depth=0):
 
 def load_sbert_model(model_name='neuml/pubmedbert-base-embeddings'):
     """Load a Sentence-BERT model from HuggingFace or local directory (PVC)."""
-    # print(f'Looking for model folder {[x[0] for x in os.walk('.')]}')
-    if os.path.isdir(f'/models/{model_name}'):
-        model_name = f'/models/{model_name}'
-        logging.info(f'Loading local model from {model_name}')
+    # Model for SentenceTransformer 2.2.2 is stored locally as the p100 config requires an old one
+    local_path = f'/models/{model_name}'
+    if os.path.isdir(local_path):
+        logging.info(f'Loading local model from {local_path}')
     else:
         logging.info(f'Loading model {model_name} from HuggingFace')
     return SentenceTransformer(model_name, device=detect_device())
@@ -37,6 +37,12 @@ def convert_codes_to_short_codes(codes: list, icd_version: int = 10) -> list:
     return list(set([convert_code_to_short_code(code, icd_version) for code in codes]))
 
 
+def is_model_chat_based(model_name: str) -> bool:
+    """Models containing these strings used chat instead if prompt template"""
+    chat_based_strings = ["chat", "mistral", 'qwen', 'Qwen', 'medreason']
+    return any(name in model_name.lower() for name in chat_based_strings)
+
+
 def detect_device() -> torch.device:
     if torch.backends.mps.is_available():
         device = torch.device("mps")
@@ -45,5 +51,4 @@ def detect_device() -> torch.device:
     else:
         device = torch.device("cpu")
 
-    # logging.info(f'Found device {device}')
     return device

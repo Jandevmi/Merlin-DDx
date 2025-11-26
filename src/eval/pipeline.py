@@ -1,10 +1,10 @@
 import pandas as pd
 from sentence_transformers import SentenceTransformer
 
-from src.ddx_data_gen.json_extraction import DiagnosesModel, ICDsModel, read_symptom_features, \
+from src.pipeline.json_extraction import DiagnosesModel, ICDsModel, read_symptom_features, \
     get_symptom_vectors
-from src.ddx_data_gen.prompt_builder import PromptArgs
-from src.ddx_data_gen.verifier import extract_diagnose_names_from_choices, \
+from src.pipeline.prompt_builder import PromptArgs
+from src.pipeline.verifier import extract_diagnose_names_from_choices, \
     extract_and_map_diagnose_name
 from src.utils import convert_codes_to_short_codes
 
@@ -12,8 +12,7 @@ from src.utils import convert_codes_to_short_codes
 def extract_diagnose_names_from_json(
         p_args: PromptArgs,
         patients: pd.DataFrame,
-        model: SentenceTransformer,
-        reranker
+        model: SentenceTransformer
 ) -> list[list[list[str]] | None]:
     """Extracts name from dict name/reason format.
     Maps predicted name to a potential diagnosis based on the primary complaint."""

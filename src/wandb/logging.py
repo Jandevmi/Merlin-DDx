@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import wandb
 
-from src.ddx_data_gen.prompt_args import PromptArgs
+from src.pipeline.prompt_args import PromptArgs
 from src.exp_args import ExpArgs
 
 LABELS_STR = {
@@ -33,7 +33,7 @@ def log_dataframe(patients: pd.DataFrame, v_step: int):
                    f'v{v_step}_json', f'v{v_step}_text', f'v{v_step}_preds']
     v_columns = {
         0: ['Chief Complaint', 'admission_note', 'labs', 'Discharge Diagnosis'],
-        1: [LABELS_STR[1]] + result_cols + ['extraction_acc'],
+        1: [LABELS_STR[1]] + result_cols,
         2: [LABELS_STR[2]] + result_cols,
         3: [LABELS_STR[3]] + result_cols,
         4: [LABELS_STR[4]] + result_cols,
@@ -56,8 +56,6 @@ def log_verifier_metrics(p_args: PromptArgs, exp_args: ExpArgs, patients: pd.Dat
         'budget': p_args.budget,
         'choices': p_args.num_choices,
     }
-    if 'extraction_acc' in patients.columns:
-        metrics['extraction_acc'] = round(np.mean(patients['extraction_acc']), 2)
     wandb.log(metrics)
     logging.info(f'V{v_step} Top Scores:\n{patients[f"v{v_step}_score"]}')
     logging.info(f'V{v_step} Mean Score: {mean_score}')
