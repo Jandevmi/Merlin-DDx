@@ -9,7 +9,7 @@ spec:
       containers:
         - name: vllm-client-gemma
           image: registry.datexis.com/jfrick/vllm_client:latest
-          command: ["python3", "/app/vllm_prompting_job.py",
+          command: ["python3", "/app/entrypoint.py",
                     '--server_name=vllm-server-gemma',
 #                    '--namespace=clinibench',
                     '--num_choices=30',

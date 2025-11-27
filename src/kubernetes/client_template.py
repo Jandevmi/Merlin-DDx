@@ -10,7 +10,7 @@ spec:
       containers:
         - name: vllm-client
           image: {{ cfg.client_image }}
-          command: ["python3", "/app/vllm_prompting_job.py",
+          command: ["python3", "/app/entrypoint.py",
                     "--server_name=vllm-server-{{ cfg.name }}",
                     "--namespace={{ cfg.namespace }}",
                     "--load_from_checkpoint={{ cfg.load_from_checkpoint }}",

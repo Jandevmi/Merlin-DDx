@@ -135,22 +135,32 @@ def get_symptom_mimic_output(symptom_dict: dict, symptom_vector: list) -> str:
     for symptom, value in zip(symptom_names, symptom_vector):
         structured_data[symptom] = {
             "value": int(value),
+            'reason': f'Extracted {symptom} from the admission note.'
         }
-    return json.dumps(structured_data, indent=4)
+    return str(json.dumps(structured_data, indent=4))
+
+
+def get_diagnose_mimic_output(diagnosis_name: str) -> str:
+    diagnose_reasoning = f'Based on the admission note {diagnosis_name} is suspected.'
+    return str([{'name': diagnosis_name, 'reason': diagnose_reasoning}])
+
+
+def get_icd_mimic_output(icd_codes: list) -> str:
+    return str([
+        {
+            'icd_code': icd_code,
+            'reason': f'Based on the admission note {icd_code} is suspected.'
+        } for icd_code in icd_codes
+    ])
 
 
 def convert_mimic_output_to_json(output, p_args: PromptArgs, v_step: int):
     if v_step == 1:
-        return str(get_symptom_mimic_output(p_args.manifestations_yaml, output))
+        return get_symptom_mimic_output(p_args.manifestations_yaml, output)
     if v_step in (2, 3):
-        return str({'name': output, 'reason': f'Based on the admission note {output} is suspected'})
+        return get_diagnose_mimic_output(output)
     if v_step == 4:
-        return str([
-            {
-                'icd_code': icd_code,
-                'reason': f'Based on the admission note {icd_code} is suspected'
-            } for icd_code in output
-        ])
+        return get_icd_mimic_output(output)
 
 
 def create_mimic_instructions(patients: pd.DataFrame, exp_args: ExpArgs, p_args: PromptArgs):
