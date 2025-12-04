@@ -11,7 +11,7 @@ IMAGE_PATH = f"registry.datexis.com/{USER}/{IMAGE_NAME}:latest"
 print(f"Building Docker image for {IMAGE_NAME} using {DOCKERFILE}...")
 build = subprocess.run([
     "docker", "build", "--platform", "linux/amd64",
-    "-f", f"k8s/deployment/{DOCKERFILE}",
+    "-f", f"deployment/{DOCKERFILE}",
     "-t", IMAGE_PATH, "."
 ])
 

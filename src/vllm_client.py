@@ -146,29 +146,23 @@ async def gather_with_concurrency(n, *coros_with_prompts):
                 return None
 
     wrapped = [sem_wrapper(coro, prompt) for coro, prompt in coros_with_prompts]
-    results = await tqdm_asyncio.gather(*wrapped)
-    return results
+    return await tqdm_asyncio.gather(*wrapped)
 
 
 async def warm_up(exp_args, v_args: VerifierArgs, session: ClientSession, llm_name) -> None:
     """Warm up and build the outlines grammar on vllm side"""
     warmup_requests = [build_coroutine(session, exp_args, v_args, llm_name) for _ in range(3)]
     warmup_coros = [coro() for coro, _ in warmup_requests]
-
     await asyncio.gather(*warmup_coros)
 
 
-async def send_prompts(exp_args, v_args: VerifierArgs, prompts: list, session: ClientSession,
-                       ) -> list:
-    batches = [prompts[i:i + v_args.batch_size]
-               for i in range(0, len(prompts), v_args.batch_size)]
-
-    request_tuples = [build_coroutine(session, exp_args, v_args, batch) for batch in batches]
-
-    return await gather_with_concurrency(v_args.concurrency, *request_tuples)
+async def send_prompts(exp_args, v_args: VerifierArgs, prompts: list, session) -> list:
+    batches = [prompts[i:i + v_args.batch_size] for i in range(0, len(prompts), v_args.batch_size)]
+    coroutines = [build_coroutine(session, exp_args, v_args, batch) for batch in batches]
+    return await gather_with_concurrency(v_args.concurrency, *coroutines)
 
 
-def extract_text_from_responses(v_args: VerifierArgs, responses: list[dir], num_choices: int, model: str) -> list:
+def extract_text_from_responses(responses: list[dir], num_choices: int, model: str) -> list:
     responses = [response["choices"] for response in responses]
 
     # Remove batch structure
@@ -194,10 +188,4 @@ async def query_prompts(exp_args: ExpArgs, v_args: VerifierArgs, prompts: list) 
 
         await warm_up(exp_args, v_args, session, exp_args.llm_name)
         responses = await send_prompts(exp_args, v_args, prompts, session)
-        responses = extract_text_from_responses(
-            v_args,
-            responses,
-            v_args.num_choices,
-            exp_args.llm_name
-        )
-        return responses
+        return extract_text_from_responses(responses, v_args.num_choices, exp_args.llm_name)

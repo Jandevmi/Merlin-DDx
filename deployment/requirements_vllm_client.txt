@@ -12,7 +12,7 @@
 torch==1.13.1+cu117
 torchvision==0.14.1+cu117
 torchaudio==0.13.1
-sentence-transformers
+sentence-transformers==2.2.2
 transformers==4.24.0
 huggingface-hub==0.14.1
 wandb==0.15.0

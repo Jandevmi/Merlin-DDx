@@ -1,3 +1,4 @@
+import json
 import logging
 from datetime import datetime
 
@@ -14,6 +15,16 @@ LABELS_STR = {
     3: 'disease',
     4: 'ICD_CODES',
 }
+
+
+def log_init(exp_args: ExpArgs, v_args: VerifierArgs):
+    print(json.dumps(exp_args.config_str, indent=4))
+    wandb.log({
+        'concurrency': v_args.concurrency,
+        'num_choices': v_args.num_choices,
+        'num_samples': exp_args.num_samples,
+    })
+
 
 
 def log_budget_step_start(v_args: VerifierArgs):
@@ -40,7 +51,7 @@ def log_verifier_metrics(exp_args: ExpArgs, v_args: VerifierArgs, patients: pd.D
     v_step = v_args.current_verifier
     mean_score = round(np.mean(patients[f'v{v_step}_score']), 3)
     minutes = round((datetime.now() - exp_args.init_time).seconds / 60, 2)
-    metrics = {
+    wandb.log({
         f'V{v_step}_score': mean_score,
         'v_step': v_step,
         'score': mean_score,
@@ -49,9 +60,7 @@ def log_verifier_metrics(exp_args: ExpArgs, v_args: VerifierArgs, patients: pd.D
         'max_tokens': v_args.max_tokens,
         'temperature': v_args.temperature,
         'budget': v_args.budget,
-        'choices': v_args.num_choices,
-    }
-    wandb.log(metrics)
+    })
     logging.info(f'V{v_step} Top Scores:\n{patients[f"v{v_step}_score"]}')
 
 

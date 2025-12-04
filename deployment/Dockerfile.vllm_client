@@ -12,8 +12,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
  && rm -rf /var/lib/apt/lists/*
 
 # Copy your application requirements and SSH config
-COPY k8s/deployment/requirements_vllm_client.txt /app/
-COPY k8s/deployment/sshd_config /etc/ssh/sshd_config
+COPY deployment/requirements_vllm_client.txt /app/
+COPY deployment/sshd_config /etc/ssh/sshd_config
 
 WORKDIR /app
 RUN pip install --no-cache-dir -r requirements_vllm_client.txt -f https://download.pytorch.org/whl/torch_stable.html

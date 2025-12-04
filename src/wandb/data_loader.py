@@ -92,7 +92,7 @@ def store_checkpoint(exp_args: ExpArgs, v_args: VerifierArgs, patients: pd.DataF
 
     work_df.to_parquet(work_path)
     patients.to_parquet(patients_path)
-    v_args.store_verifier_checkpoint(path)
+    v_args.store_checkpoint(path)
 
 
 def load_checkpoint(exp_args: ExpArgs, v_args: VerifierArgs):

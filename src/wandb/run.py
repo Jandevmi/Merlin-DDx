@@ -25,8 +25,6 @@ def init_wandb(run_name: str, eval_mode=False, tags=None) -> Run:
 
 def update_wandb_name_tags(run, exp_args: ExpArgs, v_args: VerifierArgs):
     """Update the name of an existing WandB run."""
-    print(json.dumps(exp_args.config_str, indent=4))
-
     run.name = exp_args.short_llm_name
     run.tags += (exp_args.short_llm_name, exp_args.hardware)
 
@@ -45,8 +43,6 @@ def update_wandb_name_tags(run, exp_args: ExpArgs, v_args: VerifierArgs):
     elif exp_args.guided_decoding:
         run.name += '-guid_decoding'
         run.tags += ('gui_dec', )
-
-    run.name += f'-cc{str(v_args.concurrency)}'
 
     exp_args.run_name = run.name
 

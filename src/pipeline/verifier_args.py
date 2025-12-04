@@ -178,7 +178,7 @@ class VerifierArgs:
         return (f'Start with verifier {self.current_verifier} using {self._prompt_type} and '
                 f'{self.pydantic_scheme.__name__} schema. ')
 
-    def store_verifier_checkpoint(self, path: str):
+    def store_checkpoint(self, path: str):
         step_dict = {
             "current_verifier": self.current_verifier,
             "current_budget": self.current_budget,
@@ -189,9 +189,6 @@ class VerifierArgs:
         }
         with open(f"{path}_data.yaml", "w") as f:
             yaml.dump(step_dict, f)
-
-        logging.info(f'Stored verifier checkpoint at step {self.current_verifier} '
-                     f'with budget {self.current_budget} to {path}_data.yaml')
 
     def load_from_checkpoint(self, path: str):
         with open(f"{path}_data.yaml", "r") as f:

@@ -15,7 +15,7 @@ from src.utils import load_sbert_model
 from src.vllm_client import query_prompts, get_model
 from src.wandb.data_loader import load_patients, upload_results, store_checkpoint
 from src.wandb.logging import log_dataframe, log_budget_step_metrics, log_verifier_metrics, \
-    log_budget_step_start
+    log_budget_step_start, log_init
 from src.wandb.run import init_wandb, update_wandb_name_tags
 
 
@@ -118,6 +118,7 @@ async def init_pipline(v_args: VerifierArgs, exp_args: ExpArgs
     """Initializes WandB run, loads patients, and sets label space."""
     wandb_run = init_wandb(exp_args.get_run_name(), exp_args.eval_mode)
     exp_args.llm_name = await get_model(exp_args.api_config)
+    log_init(exp_args, v_args)
     update_wandb_name_tags(wandb_run, exp_args, v_args)
     patients, work_df = load_patients(wandb_run, exp_args, v_args)
     v_args.set_labelspace(exp_args, patients)
