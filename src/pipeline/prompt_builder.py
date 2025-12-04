@@ -3,8 +3,8 @@ import json
 
 import pandas as pd
 
-from src.pipeline.json_extraction import DiagnosesModel, ICDsModel
-from src.pipeline.prompt_args import PromptArgs
+from src.pipeline.json_extraction import ICDsModel
+from src.pipeline.verifier_args import VerifierArgs
 
 
 def get_symptom_format_example(symptom_dict) -> str:
@@ -51,7 +51,7 @@ def get_icd_format_example() -> str:
 ]'''
 
 
-def get_json_format_examples(p_args: PromptArgs) -> dict:
+def get_json_format_examples(p_args: VerifierArgs) -> dict:
     return {
         'symptom_format_example': get_symptom_format_example(p_args.manifestations_yaml),
         'diagnose_format_example': get_diagnose_format_example(),
@@ -94,7 +94,7 @@ def get_diagnose_string(value, label, fallback):
         return diagnose_string
 
 
-def build_prompt(patient: dict, p_args: PromptArgs, prompt_data: dict) -> str:
+def build_prompt(patient: dict, v_args: VerifierArgs, prompt_data: dict) -> str:
     # Manifestations
     v1_json = patient.get('v1_json', "None")
     manifestation_string = (
@@ -108,10 +108,10 @@ def build_prompt(patient: dict, p_args: PromptArgs, prompt_data: dict) -> str:
     v3_json = patient.get('v3_json', v2_json)
 
     diagnose_label = patient['disease']
-    potential_diagnoses = p_args.potential_diagnoses[patient['Chief Complaint']]
+    potential_diagnoses = v_args.potential_diagnoses[patient['Chief Complaint']]
     diagnose_string = get_diagnose_string(v2_json, diagnose_label, potential_diagnoses)
 
-    if p_args.pydantic_scheme == ICDsModel:
+    if v_args.pydantic_scheme == ICDsModel:
         diagnose_string = get_diagnose_string(v3_json, diagnose_label, "Not assigned")
 
     # Build prompt
@@ -126,7 +126,7 @@ def build_prompt(patient: dict, p_args: PromptArgs, prompt_data: dict) -> str:
         'ICD_CODES': str(patient.get('ICD_CODES', "None")),
     })
 
-    return p_args.prompt.format(**prompt_data)
+    return v_args.prompt_template.format(**prompt_data)
 
 
 def extract_admission_note_from_prompt(text: str) -> str:
@@ -137,7 +137,7 @@ def extract_admission_note_from_prompt(text: str) -> str:
         return text  # fallback if not found
 
 
-def build_prompts(p_args: PromptArgs, patients: pd.DataFrame) -> list[str]:
-    prompt_data = get_json_format_examples(p_args)
-    return [build_prompt(patients_dict, p_args, prompt_data)
+def build_prompts(v_args: VerifierArgs, patients: pd.DataFrame) -> list[str]:
+    prompt_data = get_json_format_examples(v_args)
+    return [build_prompt(patients_dict, v_args, prompt_data)
             for patients_dict in patients.to_dict(orient="records")]

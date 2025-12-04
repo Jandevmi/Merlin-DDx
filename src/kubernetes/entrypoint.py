@@ -4,9 +4,8 @@ import logging
 from argparse import ArgumentParser
 from pathlib import Path
 
-from src.pipeline.json_extraction import DiagnosesModel, ICDsModel
 from src.pipeline.pipeline import start_pipeline
-from src.pipeline.prompt_args import PromptArgs
+from src.pipeline.verifier_args import VerifierArgs
 from src.exp_args import ExpArgs
 from src.vllm_client import get_api_config
 
@@ -42,48 +41,36 @@ if __name__ == "__main__":
     parser.add_argument("--config_string", type=str)
     args = parser.parse_args()
 
-    # ToDo: Clean up data classes ??!?
+    # move hardware string creation
 
     exp_args = ExpArgs(
         data_dir=Path(args.data_dir),
+        api_config=get_api_config(args.server_name, args.namespace),
         eval_mode=args.eval_mode.lower() == 'true',
-        load_from_checkpoint=args.load_from_checkpoint.lower() == 'true',
         merlin_mode=args.merlin_mode.lower() == 'true',
         ood_eval=args.ood_eval.lower() == 'true',
         think_about_labs=args.think_about_labs.lower() == 'true',
+        guided_decoding=args.guided_decoding.lower() == 'true',
+        load_from_checkpoint=args.load_from_checkpoint.lower() == 'true',
+        store_patients=args.store_patients.lower() == 'true',
         lora=args.lora.lower() == 'true',
         lora_name=args.lora_name,
         hardware=args.hardware_string,
-        config_str=ast.literal_eval(args.config_string)
-    )
-    print(f'Set merlin mode to {exp_args.merlin_mode} and eval mode to {exp_args.eval_mode}')
-
-    prompt_args = PromptArgs(
-        api_config=get_api_config(args.server_name, args.namespace),
-        chief_complaint=args.chief_complaint,
-        batch_size=args.batch_size,
-        concurrency=args.concurrency,  # max. batches that can be worked in parallel
-        guided_decoding=args.guided_decoding.lower() == 'true',
-        num_choices=args.num_choices,
+        config_str=ast.literal_eval(args.config_string),
         num_samples=args.num_samples,
-        verifier_thresholds={i+1: v for i, v in enumerate(ast.literal_eval(args.thresholds))},
     )
-    verifier_range = range(args.start_verifier, 5)
-    if exp_args.eval_mode:
-        verifier_range = [x for x in range(args.start_verifier, 5) if x != 3]
-    v_args = {
-        'start_verifier': args.start_verifier,
-        'store_patients': args.store_patients.lower() == 'true',
-        'budget': [10, 10, 10, 10] if exp_args.eval_mode else ast.literal_eval(args.budget),
-        'temperatures': ast.literal_eval(args.temperatures),
-        'max_tokens': ast.literal_eval(args.max_tokens),
-        'templates': ['EXTRACT_PROMPT', 'DIAGNOSE_PROMPT', 'RERANK_PROMPT', 'ICD_PROMPT'],
-        'schema': [None, DiagnosesModel, DiagnosesModel, ICDsModel],
-        'verifier_steps': verifier_range
-    }
 
-    if prompt_args.guided_decoding:
-        prompt_args.num_choices = 1
-        v_args['temperatures'] = [0.0, 0.0, 0.0, 0.0]
+    v_args = VerifierArgs(
+        exp_args=exp_args,
+        chief_complaint=args.chief_complaint,
+        start_verifier=args.start_verifier,
+        budgets=ast.literal_eval(args.budget),
+        temperatures=ast.literal_eval(args.temperatures),
+        max_tokens=ast.literal_eval(args.max_tokens),
+        verifier_thresholds=ast.literal_eval(args.thresholds),
+        num_choices=args.num_choices,
+        batch_size=args.batch_size,
+        concurrency=args.concurrency,
+    )
 
-    asyncio.run(start_pipeline(prompt_args, exp_args, v_args))
+    asyncio.run(start_pipeline(exp_args, v_args))

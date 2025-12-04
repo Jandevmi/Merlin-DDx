@@ -23,4 +23,4 @@ COPY src ./src
 COPY data/mimic-iv/icd_codes_9.csv ./data/mimic-iv/
 COPY data/mimic-iv/icd_codes_10.csv ./data/mimic-iv/
 COPY data/medical_schemes ./data/medical_schemes/
-COPY scripts .
+COPY src/kubernetes/entrypoint.py .

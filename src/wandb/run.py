@@ -3,12 +3,13 @@ import logging
 import os
 
 import wandb
+from wandb.sdk.wandb_run import Run
 
-from src.pipeline.prompt_args import PromptArgs
 from src.exp_args import ExpArgs
+from src.pipeline.verifier_args import VerifierArgs
 
 
-def init_wandb(run_name: str, eval_mode=False, tags=None):
+def init_wandb(run_name: str, eval_mode=False, tags=None) -> Run:
     project_name = 'merlin-eval' if eval_mode else 'trump'
 
     key = os.getenv("WANDB_API_KEY") or json.load(open("config.json"))["WANDB_API_KEY"]
@@ -22,7 +23,7 @@ def init_wandb(run_name: str, eval_mode=False, tags=None):
     )
 
 
-def update_wandb_name_tags(run, exp_args: ExpArgs, p_args: PromptArgs):
+def update_wandb_name_tags(run, exp_args: ExpArgs, v_args: VerifierArgs):
     """Update the name of an existing WandB run."""
     print(json.dumps(exp_args.config_str, indent=4))
 
@@ -41,11 +42,11 @@ def update_wandb_name_tags(run, exp_args: ExpArgs, p_args: PromptArgs):
         run.name += '-no-merlin'
     if not exp_args.config_str['Client_Job'].get('think_about_labs'):
         run.name += '-no-labs'
-    elif p_args.guided_decoding:
+    elif exp_args.guided_decoding:
         run.name += '-guid_decoding'
         run.tags += ('gui_dec', )
 
-    run.name += f'-cc{str(p_args.concurrency)}'
+    run.name += f'-cc{str(v_args.concurrency)}'
 
     exp_args.run_name = run.name
 
@@ -54,6 +55,6 @@ def update_wandb_name_tags(run, exp_args: ExpArgs, p_args: PromptArgs):
     elif exp_args.eval_mode and not exp_args.merlin_mode:
         run.tags += ('mimic_eval', )
     else:
-        run.tags += (f'data_gen', str(p_args.num_samples))
+        run.tags += (f'data_gen', str(exp_args.num_samples))
 
     logging.info(f'Updated WandB run name to: {run.name}')

@@ -20,7 +20,7 @@ spec:
                 "--download-dir=/models",
                 {% if cfg.Model.lora %}
                 "--enable-lora",
-                "--lora-modules=medreason=/ft_models/merlin-ddx/output/{{ cfg.Model.lora_modules }}",
+                "--lora-modules=lora_module=/ft_models/merlin-ddx/output/{{ cfg.Model.lora_modules }}",
                 "--max-lora-rank={{ cfg.Model.max_lora_rank }}",
                 {% endif %}
                 {% if cfg.Model.thinking and 'nightly' not in cfg.server_image %}

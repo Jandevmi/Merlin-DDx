@@ -3,10 +3,10 @@ import json
 
 import pandas as pd
 
-from src.pipeline.json_extraction import load_schemes_and_labelspace
-from src.pipeline.prompt_builder import PromptArgs, get_json_format_examples, build_prompt
-from src.pipeline.prompts import PROMPT_TEMPLATES_MIMIC
 from src.exp_args import ExpArgs
+from src.pipeline.prompt_builder import get_json_format_examples, build_prompt
+from src.pipeline.prompts import PROMPT_TEMPLATES_MIMIC
+from src.pipeline.verifier_args import VerifierArgs
 from src.utils import convert_code_to_short_code
 
 LABELS_STR = {
@@ -154,30 +154,31 @@ def get_icd_mimic_output(icd_codes: list) -> str:
     ])
 
 
-def convert_mimic_output_to_json(output, p_args: PromptArgs, v_step: int):
+def convert_mimic_output_to_json(output, v_args: VerifierArgs):
+    v_step = v_args.current_verifier
     if v_step == 1:
-        return get_symptom_mimic_output(p_args.manifestations_yaml, output)
+        return get_symptom_mimic_output(v_args.manifestations_yaml, output)
     if v_step in (2, 3):
         return get_diagnose_mimic_output(output)
     if v_step == 4:
         return get_icd_mimic_output(output)
 
 
-def create_mimic_instructions(patients: pd.DataFrame, exp_args: ExpArgs, p_args: PromptArgs):
+def create_mimic_instructions(patients: pd.DataFrame, exp_args: ExpArgs, v_args: VerifierArgs):
     """Create instructions for LLM FT that either use mimic + merlin data or only mimic data"""
     # patients = patients.reset_index().rename(columns={'index': 'hadm_id'})
-    load_schemes_and_labelspace(patients, p_args, exp_args)
     instructions = pd.DataFrame()
-    prompt_data = get_json_format_examples(p_args)
-    prompt_templates = ['EXTRACT_PROMPT', 'DIAGNOSE_PROMPT', 'RERANK_PROMPT', 'ICD_PROMPT']
+    prompt_data = get_json_format_examples(v_args)
+    v_args.prompt_templates = PROMPT_TEMPLATES_MIMIC
+    v_args.set_labelspace(exp_args, patients)
 
     for i, patient in patients.iterrows():
         # Loop over each verifier (v1 to v4)
         for v in range(1, 5):
+            v_args.current_verifier = v
             # Create Instruction which is the prompt without merlin data
-            p_args.prompt = PROMPT_TEMPLATES_MIMIC[prompt_templates[v - 1]]
-            instruction = build_prompt(patient.to_dict(), p_args, prompt_data)
-            output = convert_mimic_output_to_json(patient[LABELS_STR[v]], p_args, v)
+            instruction = build_prompt(patient.to_dict(), v_args, prompt_data)
+            output = convert_mimic_output_to_json(patient[LABELS_STR[v]], v_args, v)
 
             instructions = pd.concat([instructions, pd.DataFrame({
                 'hadm_id': patient['hadm_id'],

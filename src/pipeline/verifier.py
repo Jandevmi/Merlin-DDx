@@ -1,11 +1,9 @@
-import logging
-
 import pandas as pd
 import torch
 from sentence_transformers import SentenceTransformer, util
 
 from src.pipeline.json_extraction import get_symptom_vectors, DiagnosesModel, ICDsModel
-from src.pipeline.prompt_args import PromptArgs
+from src.pipeline.verifier_args import VerifierArgs
 from src.utils import convert_codes_to_short_codes
 
 DEVICE = 'cuda'
@@ -23,6 +21,22 @@ def cosine_similarity_torch(prediction, label):
 
     cos_sim = torch.dot(prediction, label) / (pred_norm * label_norm)
     return round(cos_sim.item(), 3)
+
+
+def normalized_dot_product_torch(prediction, label):
+    prediction = torch.tensor(prediction, dtype=torch.float32, device=DEVICE)
+    label = torch.tensor(label, dtype=torch.float32, device=DEVICE)
+
+    if prediction.shape != label.shape:
+        return 0.0
+
+    dot = torch.dot(prediction, label)
+    k = (label != 0).sum()
+
+    if k == 0:
+        return 0.5
+
+    return round(((dot + k) / (2 * k)).item(), 3)
 
 
 def get_mrr_score(pred_set: list[str], true_label: str) -> float:
@@ -63,7 +77,7 @@ def extract_and_map_diagnose_name(model, diagnose_json: list[dict], labels: list
 
 
 def extract_diagnose_names_from_choices(
-        p_args: PromptArgs,
+        v_args: VerifierArgs,
         patients: pd.DataFrame,
         choices: list[list[list[dict]] | None],
         model: SentenceTransformer
@@ -75,7 +89,7 @@ def extract_diagnose_names_from_choices(
     matched_names = []
 
     # Iterate over all primary complaints
-    for primary_complaint, potential_diagnoses in p_args.potential_diagnoses.items():
+    for primary_complaint, potential_diagnoses in v_args.potential_diagnoses.items():
         sub_df = work_df[work_df['Chief Complaint'] == primary_complaint]
         label_embeddings = model.encode(
             potential_diagnoses,
@@ -109,37 +123,35 @@ def extract_icd_names(icd_dicts: list, potential_codes: set) -> list:
     ]
 
 
-def handle_manifestations(p_args, work_df, extracted_choices, _):
+def handle_manifestations(v_args, work_df, extracted_choices, _):
     predictions = get_symptom_vectors(extracted_choices)
     labels = work_df["disease_vector"].tolist()
-    return predictions, labels, cosine_similarity_torch
+    return predictions, labels, normalized_dot_product_torch
 
 
-def handle_diagnoses(p_args, work_df, extracted_choices, mapping_model):
+def handle_diagnoses(v_args, work_df, extracted_choices, mapping_model):
     predictions = extract_diagnose_names_from_choices(
-        p_args, work_df, extracted_choices, mapping_model
+        v_args, work_df, extracted_choices, mapping_model
     )
     labels = work_df["disease"].tolist()
     return predictions, labels, get_mrr_score
 
 
-def handle_icds(p_args, work_df, extracted_choices, _):
-    potential_codes = set(p_args.potential_icds)
+def handle_icds(v_args: VerifierArgs, work_df: pd.DataFrame, extracted_choices, _):
+    potential_codes = set(v_args.potential_icds)
     predictions = extract_icd_names(extracted_choices, potential_codes)
     labels = [convert_codes_to_short_codes(codes) for codes in work_df["ICD_CODES"].tolist()]
     return predictions, labels, get_icd_f1_score
 
 
 def calculate_scores(
-        p_args: PromptArgs,
+        v_args: VerifierArgs,
         work_df: pd.DataFrame,
         extracted_choices: list[list[list[dict]]],
         mapping_model,
 ) -> tuple[list[list[float]], list]:
     """Calculate scores for the given verifier step."""
-    scheme = p_args.pydantic_scheme
-    scheme_name = scheme.__name__
-    logging.info(f"Calculating scores for {scheme_name}")
+    scheme = v_args.pydantic_scheme
 
     scheme_handlers = {
         "ManifestationsModel": handle_manifestations,
@@ -147,12 +159,12 @@ def calculate_scores(
         ICDsModel: handle_icds,
     }
 
-    handler = scheme_handlers.get(scheme_name) or scheme_handlers.get(scheme)
+    handler = scheme_handlers.get(scheme.__name__) or scheme_handlers.get(scheme)
     if handler is None:
         raise NotImplementedError(f"Unknown scheme type: {scheme}")
 
     predictions, labels, verifier = handler(
-        p_args, work_df, extracted_choices, mapping_model
+        v_args, work_df, extracted_choices, mapping_model
     )
     scores = [
         [verifier(pred, label) for pred in choices]

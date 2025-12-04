@@ -12,9 +12,9 @@ from aiohttp import ClientSession, ClientTimeout
 from openai import AsyncOpenAI
 from tqdm.asyncio import tqdm_asyncio
 
-from src.pipeline.json_extraction import get_json_schema
-from src.pipeline.prompt_builder import PromptArgs, extract_admission_note_from_prompt
+from src.pipeline.prompt_builder import extract_admission_note_from_prompt
 from src.exp_args import ExpArgs
+from src.pipeline.verifier_args import VerifierArgs
 from src.utils import is_model_chat_based
 
 logger = logging.getLogger()
@@ -37,7 +37,6 @@ def check_connection(api_config: dict) -> bool:
     backoff_time = 1  # Start with 1 second
     num_tries = 0
     max_tries = 100
-    # logging.info(f'Connecting to {api_config["openai_api_base"]}')
     while num_tries <= max_tries:
         try:
             response = requests.get(api_config['openai_api_health_url'])
@@ -52,10 +51,10 @@ def check_connection(api_config: dict) -> bool:
     raise RuntimeError(f"Could not connect to vLLM server after {max_tries} attempts")
 
 
-def get_endpoint(prompt_args: PromptArgs, model: str) -> str:
-    base = prompt_args.api_config["openai_api_base"]
-    if is_model_chat_based(model):
-        if prompt_args.batch_size > 1:
+def get_endpoint(exp_args: ExpArgs, v_args: VerifierArgs) -> str:
+    base = exp_args.api_config["openai_api_base"]
+    if is_model_chat_based(exp_args.llm_name):
+        if v_args.batch_size > 1:
             raise ValueError("Batch Size must be 1 for Chat Based Models")
         return f"{base}/chat/completions"
     return f"{base}/completions"
@@ -75,12 +74,12 @@ async def get_model(api_config: dict) -> str:
     return models.data[0].id
 
 
-def build_payload(prompt_args: PromptArgs, model: str, prompts=None) -> dict:
+def build_payload(exp_args: ExpArgs, v_args: VerifierArgs, prompts=None) -> dict:
     payload = {
-        "model": model,
-        "temperature": prompt_args.temperature,
-        "n": prompt_args.num_choices,
-        "max_tokens": prompt_args.max_tokens if prompts else 256,
+        "model": "lora_module" if exp_args.lora else exp_args.llm_name,
+        "temperature": v_args.temperature,
+        "n": v_args.num_choices,
+        "max_tokens": v_args.max_tokens if prompts else 256,
         "stream": False,
         "echo": False,
     }
@@ -88,31 +87,35 @@ def build_payload(prompt_args: PromptArgs, model: str, prompts=None) -> dict:
     # Add prompts to payload
     system_prompt = "You are a helpful medical assistant."
     prompts = prompts or ["Warmup test prompt"]
-    if is_model_chat_based(model):
+    if is_model_chat_based(exp_args.llm_name):
         # For chat-based models, wrap each prompt separately
         payload["messages"] = [
-            {"role": "system", "content": [{"type": "text", "text": system_prompt}]},
-            {"role": "user", "content": [{"type": "text", "text": prompts[0]}]}
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": prompts[0]},
         ]
     else:
         # For completion-based models, pass all prompts directly
         payload["prompt"] = [f"{system_prompt}\n{p}" for p in prompts]
 
+    # print(v_args.pydantic_scheme.model_json_schema())
+
     # Add response format if guided decoding is enabled
-    payload["response_format"] = {
-        "type": "json_schema",
-        "json_schema": {
-            "name": prompt_args.pydantic_scheme.__name__,
-            "schema": get_json_schema(prompt_args.pydantic_scheme)
+    if exp_args.guided_decoding:
+        payload["response_format"] = {
+            "type": "json_schema",
+            "json_schema": {
+                "name": v_args.pydantic_scheme.__name__,
+                "schema": v_args.pydantic_scheme.model_json_schema(),
+                "strict": True
+            }
         }
-    }
     return payload
 
 
-def build_coroutine(session, prompt_args: PromptArgs, model: str, prompts=None):
+def build_coroutine(session, exp_args: ExpArgs, v_args: VerifierArgs, prompts=None):
     prompts = prompts or ["Warmup test prompt"]
-    url = get_endpoint(prompt_args, model)
-    payload = build_payload(prompt_args, model, prompts)
+    url = get_endpoint(exp_args, v_args)
+    payload = build_payload(exp_args, v_args, prompts)
     headers = {"Content-Type": "application/json"}
 
     async def request_coro():
@@ -147,25 +150,25 @@ async def gather_with_concurrency(n, *coros_with_prompts):
     return results
 
 
-async def warm_up(prompt_args: PromptArgs, session: ClientSession, llm_name) -> None:
+async def warm_up(exp_args, v_args: VerifierArgs, session: ClientSession, llm_name) -> None:
     """Warm up and build the outlines grammar on vllm side"""
-    warmup_requests = [build_coroutine(session, prompt_args, llm_name) for _ in range(3)]
+    warmup_requests = [build_coroutine(session, exp_args, v_args, llm_name) for _ in range(3)]
     warmup_coros = [coro() for coro, _ in warmup_requests]
 
     await asyncio.gather(*warmup_coros)
 
 
-async def send_prompts(prompt_args: PromptArgs, prompts: list, session: ClientSession,
-                       llm_name: str) -> list:
-    batches = [prompts[i:i + prompt_args.batch_size]
-               for i in range(0, len(prompts), prompt_args.batch_size)]
+async def send_prompts(exp_args, v_args: VerifierArgs, prompts: list, session: ClientSession,
+                       ) -> list:
+    batches = [prompts[i:i + v_args.batch_size]
+               for i in range(0, len(prompts), v_args.batch_size)]
 
-    request_tuples = [build_coroutine(session, prompt_args, llm_name, batch) for batch in batches]
+    request_tuples = [build_coroutine(session, exp_args, v_args, batch) for batch in batches]
 
-    return await gather_with_concurrency(prompt_args.concurrency, *request_tuples)
+    return await gather_with_concurrency(v_args.concurrency, *request_tuples)
 
 
-def extract_text_from_responses(responses: list, num_choices: int, model: str) -> list:
+def extract_text_from_responses(v_args: VerifierArgs, responses: list[dir], num_choices: int, model: str) -> list:
     responses = [response["choices"] for response in responses]
 
     # Remove batch structure
@@ -181,20 +184,20 @@ def extract_text_from_responses(responses: list, num_choices: int, model: str) -
         return [[choice['text'] for choice in response] for response in responses]
 
 
-async def query_prompts(exp_args: ExpArgs, prompt_args: PromptArgs, prompts: list) -> list:
-    check_connection(prompt_args.api_config)
-    model = "medreason" if exp_args.lora else exp_args.llm_name
+async def query_prompts(exp_args: ExpArgs, v_args: VerifierArgs, prompts: list) -> list:
+    check_connection(exp_args.api_config)
     if exp_args.llm_name is None:
-        exp_args.llm_name = await get_model(prompt_args.api_config)
+        exp_args.llm_name = await get_model(exp_args.api_config)
         wandb.log({'model': exp_args.llm_name})
 
     async with ClientSession(timeout=ClientTimeout(total=1000000)) as session:
 
-        await warm_up(prompt_args, session, exp_args.llm_name)
-        responses = await send_prompts(prompt_args, prompts, session, model)
+        await warm_up(exp_args, v_args, session, exp_args.llm_name)
+        responses = await send_prompts(exp_args, v_args, prompts, session)
         responses = extract_text_from_responses(
+            v_args,
             responses,
-            prompt_args.num_choices,
+            v_args.num_choices,
             exp_args.llm_name
         )
         return responses

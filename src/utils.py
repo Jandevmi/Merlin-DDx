@@ -19,12 +19,14 @@ def init_notebook(depth=0):
 def load_sbert_model(model_name='neuml/pubmedbert-base-embeddings'):
     """Load a Sentence-BERT model from HuggingFace or local directory (PVC)."""
     # Model for SentenceTransformer 2.2.2 is stored locally as the p100 config requires an old one
-    local_path = f'/models/{model_name}'
-    if os.path.isdir(local_path):
+    try:
+        local_path = f'/models/{model_name}'
+        model = SentenceTransformer(model_name, device=detect_device())
         logging.info(f'Loading local model from {local_path}')
-    else:
+        return model
+    except Exception as e:
         logging.info(f'Loading model {model_name} from HuggingFace')
-    return SentenceTransformer(model_name, device=detect_device())
+        return SentenceTransformer(model_name, device=detect_device())
 
 
 def convert_code_to_short_code(code: list, icd_version: int = 10) -> str:
@@ -39,7 +41,7 @@ def convert_codes_to_short_codes(codes: list, icd_version: int = 10) -> list:
 
 def is_model_chat_based(model_name: str) -> bool:
     """Models containing these strings used chat instead if prompt template"""
-    chat_based_strings = ["chat", "mistral", 'qwen', 'Qwen', 'medreason']
+    chat_based_strings = ["chat", "mistral", 'qwen', 'Qwen', 'lora_module']
     return any(name in model_name.lower() for name in chat_based_strings)
 
 
