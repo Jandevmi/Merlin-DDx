@@ -1,7 +1,7 @@
-name: refactor-test-ood  # If lora on last 6 chars will be used in wandb name
+name: refactor-test-gen  # If lora on last 6 chars will be used in wandb name
 server_image: registry.datexis.com/jfrick/vllm_server:nightly
 client_image: registry.datexis.com/jfrick/vllm_client:latest
-namespace: clinibench
+namespace: jfrick
 load_from_checkpoint: False
 Hardware:
   client_gpu: "p100"
@@ -13,23 +13,23 @@ Model:
   max_num_seqs: 1024
   max_num_batched_tokens: 131072  # 131072 32768 65536 131072
   dtype: "auto"
-  thinking: True
-  lora: True
+  thinking: False
+  lora: False
   lora_modules: "qwen3-8b-sft-all-vall/checkpoint-1608"
   max_lora_rank: 128
 Client_Job:
-  num_choices: 4 # Set to 1 if guided decoding is applied
-  num_samples: 500
-  concurrency: 32
+  num_choices: 20 # Set to 1 if guided decoding is applied
+  num_samples: 63
+  concurrency: 64
   batch_size: 1
   start_verifier: 1
   budget: [4, 4, 4, 5]
   temperatures: [0.4, 0.4, 0.4, 0.4] # Set to 0 if guided decoding is applied
   max_tokens: [1500, 1300, 1500, 1800]
-  thresholds: [0.0, 0.0, 0.0, 0.0]
-  eval_mode: True
-  ood_eval: True
+  thresholds: [0.4, 0.5, 0.8, 0.4]
+  eval_mode: False
+  ood_eval: False
   merlin_mode: True
   think_about_labs: True
-  guided_decoding: True
+  guided_decoding: False
   store_patients: True

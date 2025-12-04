@@ -1,113 +1,65 @@
-# Merlin-DDx  
-A knowledge-augmented differential diagnosis system combining structured medical knowledge and large language model inference.
+## MeRLIn-DDx: Clinically Grounded Dataset for Diagnostic Reasoning
 
-## Purpose & Scope  
-This document introduces Merlin-DDx, a platform for medical differential diagnosis that takes patient presentations (chief complaints and associated symptoms) and outputs ranked lists of possible diagnoses. The system integrates structured medical knowledge with neural reasoning to improve clinical accuracy and interpretability.
+MeRLIn-DDx (Reasoning Learning for Interpretable Differential Diagnoses) is a framework and dataset designed to train and evaluate Large Language Models (LLMs) for **differential diagnosis (DDx)** by enforcing an explicit, verifiable reasoning process that mirrors clinical decision-making. This work reframes diagnosis prediction as a verifiable reasoning process, bridging symbolic validation with empirical performance.
 
-For detailed subsystems, see:  
-- Medical Knowledge Base  
-- Model Infrastructure  
-- Evaluation Framework  
-- Clinical Reasoning Pipeline
+The resulting dataset comprises approximately **9,000 synthetic reasoning paths** derived from approximately 3,000 real-world cases in the **MIMIC-IV** database. These paths logically connect initial chief complaints (primarily abdominal pain) to final discharge diagnoses, offering an interpretable and clinically validated resource for Supervised Fine-Tuning (SFT) of reasoning LLMs.
 
-## System Description  
-Merlin-DDx uses a hybrid symbolic-neural architecture:  
-- **Symbolic component**: structured medical knowledge (diagnosis databases, symptom schemas, ICD code mappings)  
-- **Neural component**: large language models (LLMs, 0.6B to 70B parameters) hosted via vLLM  
-- **Integration layer**: orchestration logic that retrieves knowledge, constructs prompts, invokes the LLM, and validates output  
+---
 
-This approach constrains and guides model reasoning to improve accuracy and interpretability compared to purely end-to-end LLM approaches. :contentReference[oaicite:0]{index=0}
+### Core Components
 
-## Key Capabilities  
-| Capability              | Description                                                          |
-|--------------------------|-----------------------------------------------------------------------|
-| Multi-symptom coverage   | Handles 8 primary symptom presentations (387+ conditions) :contentReference[oaicite:1]{index=1} |
-| Structured reasoning     | Uses tri-state feature encoding (-1 / 0 / 1) across clinical features :contentReference[oaicite:2]{index=2} |
-| ICD code validation      | Maps diagnoses to ICD-9/10 codes via regex matching :contentReference[oaicite:3]{index=3} |
-| Multiple model support   | Evaluates models from 0.6B to 70B parameters :contentReference[oaicite:4]{index=4} |
-| Guided generation        | Constrains outputs to valid JSON structures :contentReference[oaicite:5]{index=5} |
-| Cross-validation eval    | Rigorous testing across folds and out-of-domain datasets :contentReference[oaicite:6]{index=6} |
+The MeRLIn-DDx Framework unifies data generation, reasoning evaluation, and dataset creation within a single, clinically grounded pipeline.
 
-## System Architecture Overview  
+#### 1. Generator-Verifier Pipeline
 
-### Core Components  
-**Medical Knowledge Base**  
-- Diagnosis databases: `data/medical_schemes/diagnoses/*.csv` — lists conditions per symptom category with feature profiles. :contentReference[oaicite:7]{index=7}  
-- Symptom schemas: `data/medical_schemes/symptoms/*.yaml` — defines clinical features for data collection. :contentReference[oaicite:8]{index=8}  
-- ICD code maps: `data/mimic-iv/icd_codes_*.csv` — maps diseases to standard ICD codes. :contentReference[oaicite:9]{index=9}  
-- Coverage examples:  
-  - Abdominal Pain: 69 conditions, 24 features :contentReference[oaicite:10]{index=10}  
-  - Chest Pain: 49 conditions, 25 features :contentReference[oaicite:11]{index=11}  
-  - Dyspnea: 77 conditions, 21 features :contentReference[oaicite:12]{index=12}  
-  - … etc.  
+The system utilizes a four-stage generator-verifier pipeline that replicates the stepwise diagnostic reasoning process clinicians follow, moving beyond direct text classification for ICD-10 codes. Each stage operates in an instruction-generation-verification loop, cross-checking outputs against medical ground truths from **WikiDoc** or MIMIC-IV.
 
-**vLLM Client-Server Architecture**  
-- Server container: built from `vllm/vllm-openai:nightly`, adds the `outlines` library for JSON schema enforcement, exposes OpenAI-compatible API, supports GPU. :contentReference[oaicite:13]{index=13}  
-- Client container: CUDA 12.2 base with cuDNN 8, mounts the medical knowledge base, orchestrates prompt construction → server call → output validation. :contentReference[oaicite:14]{index=14}  
-- Deployed on Kubernetes: separate pods for server & client, medical knowledge base mounted as volume, environment variables configure model paths & endpoints, uses WandB for experiment tracking. :contentReference[oaicite:15]{index=15}  
+The four stages are:
 
-## Diagnostic Reasoning Pipeline  
-The end-to-end flow from patient presentation to ranked diagnoses includes:  
-- `load_schemes_and_labelspace()` — loads diagnosis CSVs and symptom schemas. :contentReference[oaicite:16]{index=16}  
-- `PromptArgs` — manages prompt configuration and templates. :contentReference[oaicite:17]{index=17}  
-- `extract_json_and_pred_from_text()` — parses LLM output and extracts predictions. :contentReference[oaicite:18]{index=18}  
-- `load_sbert_model()` — loads sentence-BERT for semantic matching. :contentReference[oaicite:19]{index=19}  
-- `calculate_icd_metrics()` — computes ICD code accuracy metrics. :contentReference[oaicite:20]{index=20}  
-- `calculate_disease_metrics()` — computes Mean Reciprocal Rank (MRR), Variant Reciprocal Rank (VRR). :contentReference[oaicite:21]{index=21}  
-- `convert_codes_to_short_codes()` — normalizes ICD codes. :contentReference[oaicite:22]{index=22}  
-- `init_wandb()` — initializes WandB experiment tracking. :contentReference[oaicite:23]{index=23}  
+* **$V_1$: Symptom Extraction:** Extracts observable evidence from the patient admission note, validated against a WikiDoc-derived symptom schema.
+* **$V_2$: Diagnosis Prediction:** Explores possible differential diagnoses, cross-checked against WikiDoc symptom-disease mappings to enforce medically valid hypothesis generation.
+* **$V_3$: Lab-based Reranking:** Integrates objective laboratory data collected within 12 hours of admission to refine and rerank the diagnostic hypotheses, constraining the diagnostic space.
+* **$V_4$: ICD Codes Prediction:** Maps all previous outputs to standardized **ICD-10 codes**, evaluated against MIMIC-IV discharge codes to ensure alignment with clinical documentation standards.
 
-## Model Evaluation Framework  
-**Evaluated Models**  
-- Qwen3: 0.6B, 8B, 14B, 32B — Base, Guided (-G), LoRA fine-tuned, MIMIC-adapted. :contentReference[oaicite:24]{index=24}  
-- Llama 3.3: 70B — Base, Guided (-G). :contentReference[oaicite:25]{index=25}  
-- MedGemma: 27B — Base, Guided (-G). :contentReference[oaicite:26]{index=26}  
-- MedReason: 8B — Base, Guided (-G). :contentReference[oaicite:27]{index=27}  
+#### 2. MeRLIn-DDx Dataset
 
-**Evaluation Metrics**  
-- V1_CosSim: cosine similarity between predicted & true symptom-disease vectors. :contentReference[oaicite:28]{index=28}  
-- V2_MRR: Mean Reciprocal Rank of correct diagnosis in ranked list. :contentReference[oaicite:29]{index=29}  
-- V3_VRR: Variant Reciprocal Rank. :contentReference[oaicite:30]{index=30}  
-- ICD Accuracy: precision/recall for ICD code predictions. :contentReference[oaicite:31]{index=31}  
-- Valid JSON %: percentage of outputs with valid JSON structure. :contentReference[oaicite:32]{index=32}  
+The dataset focuses on patients presenting with **abdominal pain** as the chief complaint, chosen for its frequency and diagnostic complexity.
 
-**Test Scenarios**  
-- In-domain: dataset for primary symptom category (e.g., abdominal pain). :contentReference[oaicite:33]{index=33}  
-- Out-of-domain (OOD): dataset of 700 patients across all 8 symptom categories to test generalization. :contentReference[oaicite:34]{index=34}  
-- 3-fold cross-validation per model, aggregate results, generate tables of mean ± standard deviation. :contentReference[oaicite:35]{index=35}  
+* **Source Data:** Simulated admission notes from the MIMIC-IV dataset.
+* **Scope:** 3,055 clinical notes and 9,165 verified reasoning chains.
+* **Format:** The reasoning traces are converted into instruction-response pairs for Supervised Fine-Tuning (SFT).
 
-## Data Encoding System  
-Merlin-DDx uses a **tri-state encoding system** for clinical features:  
-- `-1`: feature is absent or explicitly negative. 
-- `0`: feature is neutral, unknown, or not applicable. 
-- `1`: feature is present or explicitly positive. 
+---
 
-**Example (Acute appendicitis without perforation):**  
-- RLQ pain: 1 :
-- Fever: 1 
-- Nausea/vomiting: 1
-- Guarding: 1 
-- Rebound tenderness: 1
-- Hypoactive bowel sounds: 1 
-- Diarrhea: 0 
-- Jaundice: -1 
+### Setup and Requirements
 
-This encoding enables:  
-- Precise clinical characterization.  
-- Pattern-matching between patient data and disease profiles.  
-- Semantic similarity calculations using cosine similarity.  
-- Interpretable reasoning that clinicians can verify.
+The following infrastructure and configuration are essential for replicating the data generation process.
 
-## Deployment Architecture  
-Merlin-DDx is designed for Kubernetes deployment with two primary containers:  
-- **vLLM Server**: `vllm/vllm-openai:nightly` image; requires P100/A100 for model hosting. 
-- **vLLM Client**: NVIDIA CUDA 12.2 base; handles reasoning orchestration. 
+#### Data Requirements
 
-## Summary  
-Merlin-DDx implements a knowledge-augmented approach to medical differential diagnosis by combining:  
-- Structured medical knowledge (8 symptom-specific diagnosis databases, 387+ conditions, standardized feature schemas). :contentReference[oaicite:54]{index=54}  
-- Modern LLM infrastructure (vLLM client-server architecture with GPU acceleration). :contentReference[oaicite:55]{index=55}  
-- Rigorous evaluation (cross-validation framework comparing multiple model families with 5+ metrics). :contentReference[oaicite:56]{index=56}  
-- Clinical validation (ICD code mapping and tri-state encoding for interpretable reasoning). :contentReference[oaicite:57]{index=57}  
+* **MIMIC-IV:** Access to the MIMIC-IV database is required to obtain raw clinical notes and ground truth ICD discharge codes.
+* **WikiDoc:** Used as the clinical knowledge base for structured symptom-disease mappings, serving as the ground truth for verification stages $V_1$, $V_2$, and $V_3$.
 
-Its key innovation is the **hybrid symbolic-neural design**: structured medical schemas constrain and guide LLM outputs, improving both accuracy and interpretability over purely end-to-end approaches. :contentReference[oaicite:58]{index=58}  
+#### Infrastructure Requirements
+
+The generation process utilizes large foundation models (Qwen3-32B, MedGemma-27B, Llama-3.1-70B Instruct) and is resource-intensive due to the iterative nature of generating traces per stage.
+
+* **Kubernetes Cluster:** A **Kubernetes cluster** is necessary to manage and execute the instruction-generation-verification loops efficiently and scale the deployment of the server and client components.
+* **WandB (Weights & Biases):** Used for experiment tracking, logging, and monitoring the SFT process and evaluation metrics.
+
+---
+
+### Scripts and Configuration
+
+The `scripts` folder contains components for infrastructure management and initial data preparation for the generator-verifier pipeline.
+
+| Script/File | Function                  | Description |
+| :--- |:--------------------------| :--- |
+| `build_docker` | **Containerization**      | Builds the **Docker image** necessary to run the MeRLIn-DDx client and server components, ensuring a standardized execution environment across the cluster. |
+| `map_diagnoses` | **Data Preprocessing**    | Implements the logic to derive verifiable ground truths by mapping MIMIC-IV cases to WikiDoc disease entries and symptom profiles, which is essential for the verifier stages $V_1$, $V_2$, and $V_3$. |
+| `run_from_config` | **Experiment Execution**  | Reads parameters from `server_client_config.yaml` to initialize and launch the deployed **server** (hosting the LLMs) and the **client** (managing the workflow). |
+| `shutdown_from_config` | **Experiment Shutdown**   | Terminates the running client and server instances based on the current configuration, managing resource allocation. |
+| `restart_client` | **Experiment Restart**    | Restarts the client process with new parameters (e.g., to adjust generation settings) without the need to restart the resource-heavy LLM server. |
+| `server_client_config.yaml` | **Experiment Parameters** | Defines all critical parameters for the experiment, including model selection, verifier acceptance thresholds, iteration budgets, and deployment settings for the client and server. |
+
+**Note:** Scripts for further preprocessing and supervised fine-tuning (SFT) are pending addition.
