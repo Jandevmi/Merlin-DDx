@@ -37,7 +37,7 @@ def log_budget_step_start(v_args: VerifierArgs):
 def log_budget_step_metrics(v_args: VerifierArgs, patients: pd.DataFrame):
     if v_args.budget <= 1:
         return
-    budget_step = v_args.budget - v_args.current_budget
+    budget_step = v_args.budget - v_args.current_budget + 1
     mean_score = round(np.mean(patients[f'v{v_args.current_verifier}_score']), 3)
     wandb.log({
         f'B_step': budget_step,

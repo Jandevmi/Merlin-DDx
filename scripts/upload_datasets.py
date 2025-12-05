@@ -4,7 +4,7 @@ import wandb
 
 from src.wandb.run import init_wandb
 
-wandb_run = init_wandb('Upload Patients Dataset', eval_mode=True)
+wandb_run = init_wandb('Upload Patients Dataset', eval_mode=False)
 
 # artifact = wandb.Artifact('patients_10', type='dataset')
 # artifact.add_file('data/reasoning/abdominal_pain/patients_10.pq')

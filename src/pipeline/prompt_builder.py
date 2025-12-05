@@ -130,6 +130,9 @@ def build_prompt(patient: dict, v_args: VerifierArgs, prompt_data: dict) -> str:
 
 
 def extract_admission_note_from_prompt(text: str) -> str:
+    while not isinstance(text, str):
+        text = text[0]
+
     idx = text.find("### Admission Note")
     if idx != -1:
         return text[idx:]

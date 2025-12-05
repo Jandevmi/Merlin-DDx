@@ -10,7 +10,7 @@ from src.pipeline.verifier_args import VerifierArgs
 
 
 def init_wandb(run_name: str, eval_mode=False, tags=None) -> Run:
-    project_name = 'merlin-eval' if eval_mode else 'trump'
+    project_name = 'merlin-eval' if eval_mode else 'merlin-generation'
 
     key = os.getenv("WANDB_API_KEY") or json.load(open("config.json"))["WANDB_API_KEY"]
 

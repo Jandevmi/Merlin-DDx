@@ -126,7 +126,7 @@ def extract_icd_names(icd_dicts: list, potential_codes: set) -> list:
 def handle_manifestations(v_args, work_df, extracted_choices, _):
     predictions = get_symptom_vectors(extracted_choices)
     labels = work_df["disease_vector"].tolist()
-    return predictions, labels, cosine_similarity_torch
+    return predictions, labels, normalized_dot_product_torch
 
 
 def handle_diagnoses(v_args, work_df, extracted_choices, mapping_model):
