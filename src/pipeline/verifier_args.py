@@ -203,5 +203,3 @@ class VerifierArgs:
 
         logging.info(f'Loaded verifier checkpoint from step {self.current_verifier} '
                      f'with budget {self.current_budget}')
-
-

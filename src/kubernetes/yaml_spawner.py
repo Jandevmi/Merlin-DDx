@@ -51,7 +51,11 @@ def render_client(cfg):
 
 
 def apply_yaml(yaml_str):
-    proc = subprocess.run(["kubectl", "apply", "-f", '-'], input=yaml_str.encode(), check=True)
+    try:
+        proc = subprocess.run(["kubectl", "apply", "-f", '-'], input=yaml_str.encode(), check=True)
+    except subprocess.CalledProcessError as e:
+        logging.error(f"Error applying YAML: {e}")
+        raise
     return proc
 
 

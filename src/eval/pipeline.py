@@ -1,7 +1,7 @@
 import pandas as pd
 from sentence_transformers import SentenceTransformer
 
-from src.pipeline.json_extraction import DiagnosesModel, ICDsModel, read_symptom_features
+from src.pipeline.json_extraction import DiagnosesModel, ICDsModel, extract_jsons
 from src.pipeline.verifier import extract_and_map_diagnose_name
 from src.pipeline.verifier_args import VerifierArgs
 from src.utils import convert_codes_to_short_codes
@@ -48,8 +48,8 @@ def extract_icd_names(v4_json: list, potential_icds: set = None) -> list:
 
 def extract_json_and_pred_from_text(df: pd.DataFrame, v_args: VerifierArgs,
                                     mapping_model: SentenceTransformer, generation=False):
-    df['v2_json'] = df['v2_text'].apply(lambda text: read_symptom_features(text, DiagnosesModel))
-    df['v4_json'] = df['v4_text'].apply(lambda text: read_symptom_features(text, ICDsModel))
+    df['v2_json'] = df['v2_text'].apply(lambda text: extract_jsons(text, DiagnosesModel))
+    df['v4_json'] = df['v4_text'].apply(lambda text: extract_jsons(text, ICDsModel))
     df['v2_preds'] = extract_diagnose_names_from_json(v_args, df, mapping_model)
     df['v4_preds'] = df['v4_json'].apply(lambda json: extract_icd_names(json, v_args.potential_icds))
 
@@ -59,7 +59,7 @@ def extract_json_and_pred_from_text(df: pd.DataFrame, v_args: VerifierArgs,
         print('get v1 preds')
         # df['v1_preds'] = df['v1_json'].map(get_symptom_vectors)
         print('v3')
-        df['v3_json'] = df['v3_text'].apply(lambda text: read_symptom_features(text, DiagnosesModel))
+        df['v3_json'] = df['v3_text'].apply(lambda text: extract_jsons(text, DiagnosesModel))
         df['v3_preds'] = extract_diagnose_names_from_json(v_args, df, mapping_model)
 
 

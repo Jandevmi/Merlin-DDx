@@ -199,10 +199,10 @@ Respond clearly and concisely. Avoid speculation, filler, or disclaimers.
   - Use the format of the Output Format Example.
   - Include only a short reasoning of 1 - 3 sentences for each diagnosis.  
   - The JSON is the only output. Stop after printing it.
- 
+
 ### Admission Note
 {admission_note}
-   
+
 ### Clinical Manifestations
 {clinical_manifestations}
 
@@ -236,7 +236,7 @@ Respond clearly and concisely. Avoid speculation, filler, or disclaimers.
  
 ### Admission Note
 {admission_note}
-   
+
 ### Clinical Manifestations
 {clinical_manifestations}
 

@@ -6,7 +6,7 @@ import wandb
 from wandb.sdk.wandb_run import Run
 
 from src.exp_args import ExpArgs
-from src.pipeline.json_extraction import read_json_from_llm_results
+from src.pipeline.json_extraction import extract_jsons_from_responses
 from src.pipeline.prompt_builder import build_prompts
 from src.pipeline.prompts import QUALITATIVE_EVAL_PROMPT
 from src.pipeline.verifier import calculate_scores
@@ -81,10 +81,10 @@ async def prompt_and_evaluate(exp_args: ExpArgs, v_args: VerifierArgs, patients:
         log_budget_step_start(v_args)
         prompts = build_prompts(v_args, work_df)
         init_dataframe(patients, prompts, v_args.current_verifier)
-        llm_response = await query_prompts(exp_args, v_args, prompts)
-        extracted_json = read_json_from_llm_results(llm_response, v_args)
+        vllm_response = await query_prompts(exp_args, v_args, prompts)
+        extracted_json = extract_jsons_from_responses(v_args, vllm_response)
         scores, preds = calculate_scores(v_args, work_df, extracted_json, mapping_model)
-        update_patients(patients, work_df, llm_response, extracted_json,
+        update_patients(patients, work_df, vllm_response, extracted_json,
                         scores, preds, v_args.current_verifier, exp_args.eval_mode)
         log_budget_step_metrics(v_args, patients)
         v_args.adapt_params_for_next_generation(len(work_df))

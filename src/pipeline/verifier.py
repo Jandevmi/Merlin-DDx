@@ -2,7 +2,7 @@ import pandas as pd
 import torch
 from sentence_transformers import SentenceTransformer, util
 
-from src.pipeline.json_extraction import get_symptom_vectors, DiagnosesModel, ICDsModel
+from src.pipeline.json_extraction import convert_symptom_dict_to_symptom_vector, DiagnosesModel, ICDsModel
 from src.pipeline.verifier_args import VerifierArgs
 from src.utils import convert_codes_to_short_codes
 
@@ -124,7 +124,7 @@ def extract_icd_names(icd_dicts: list, potential_codes: set) -> list:
 
 
 def handle_manifestations(v_args, work_df, extracted_choices, _):
-    predictions = get_symptom_vectors(extracted_choices)
+    predictions = convert_symptom_dict_to_symptom_vector(extracted_choices)
     labels = work_df["disease_vector"].tolist()
     return predictions, labels, normalized_dot_product_torch
 
