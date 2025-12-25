@@ -7,6 +7,7 @@ import yaml
 from pydantic import BaseModel, RootModel, Field, create_model, conint
 
 from src.exp_args import ExpArgs
+from src.utils import load_diseases_for_chief_complaint
 
 
 class DiagnosisModel(BaseModel):
@@ -76,7 +77,6 @@ def get_potential_diagnoses_for_complaints(exp_args: ExpArgs, chief_complaints: 
     potential_diagnoses = {}
     logging.info(f'Loading potential diagnoses for complaints: {chief_complaints}')
     for chief_complaint in chief_complaints:
-        chief_complaint_key = chief_complaint.replace(" ", "_")
-        path = f'{exp_args.data_dir}/medical_schemes/diagnoses/{chief_complaint_key}.csv'
-        potential_diagnoses[chief_complaint] = pd.read_csv(path)['Disease'].tolist()
+        diseases = load_diseases_for_chief_complaint(exp_args, chief_complaint)
+        potential_diagnoses[chief_complaint] = diseases['Disease'].tolist()
     return potential_diagnoses

@@ -14,8 +14,8 @@ data/reasoning
 data/embeddings
 data/results
 data/fine_tuning
-data/mimic-iv/icd-9
-data/mimic-iv/icd-10
+data/mimic-iv/discharge_notes
+data/mimic-iv/admission_notes
 /models/
 
 # Byte-compiled / optimized / DLL files

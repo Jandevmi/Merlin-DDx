@@ -2,6 +2,7 @@ import logging
 import os
 from pathlib import Path
 
+import pandas as pd
 import torch
 from sentence_transformers import SentenceTransformer
 
@@ -14,6 +15,12 @@ def init_notebook(depth=0):
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
     logging.info(f"Working directory set to: {top_level}")
+
+
+def load_diseases_for_chief_complaint(exp_args, chief_complaint: str) -> pd.DataFrame:
+    chief_complaint_key = chief_complaint.replace(" ", "_")
+    path = f'{exp_args.data_dir}/medical_schemes/diagnoses/{chief_complaint_key}.csv'
+    return pd.read_csv(path)
 
 
 def load_sbert_model(model_name='neuml/pubmedbert-base-embeddings'):

@@ -44,3 +44,18 @@ class ExpArgs:
     def get_icd_description_path(self, icd: int) -> Path:
         """Get path for ICD code description mapping."""
         return self.data_dir / "mimic-iv" / f"icd_codes_{icd}.csv"
+
+    def get_mimic_note_path(self, note_type: str, split: str, icd: int, data_source: str) -> Path:
+        """Return full path for a MIMIC-IV note file."""
+        assert note_type in ["discharge", "admission"], "Invalid note type"
+        assert split in ["train", "dev", "test"], "Invalid data split"
+        assert data_source in ["hosp", "icu"], "Invalid data_source type"
+        assert icd in [9, 10], "ICD must be 9 or 10"
+        return (
+                self.data_dir
+                / "mimic-iv"
+                / f"{note_type}_notes"
+                / f"icd-{icd}"
+                / data_source
+                / f"{split}_{icd}_{data_source}.pq"
+        )
